@@ -88,7 +88,13 @@ try {
     # Note: Join-Path with 3 args requires PS6+; use Split-Path for PS5.1 compat.
     $swigIface = Join-Path (Split-Path $SwigDir -Parent) "pjsua2.i"
     Write-Host "Generating SWIG wrapper (pjsua2_wrap.cpp)..."
-    swig -c++ -python "-I$PjprojectDir" -o pjsua2_wrap.cpp "$swigIface"
+    swig -c++ -python -threads `
+        "-I$PjprojectDir\pjlib\include" `
+        "-I$PjprojectDir\pjlib-util\include" `
+        "-I$PjprojectDir\pjmedia\include" `
+        "-I$PjprojectDir\pjsip\include" `
+        "-I$PjprojectDir\pjnath\include" `
+        -o pjsua2_wrap.cpp "$swigIface"
     if ($LASTEXITCODE -ne 0) {
         throw "SWIG generation failed with exit code $LASTEXITCODE"
     }
