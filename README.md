@@ -122,21 +122,34 @@ The build scripts prefer static upstream linkage to reduce runtime sidecar libra
 
 ### Linux
 
+#### Full build (all Python versions)
+
 ```bash
 ./scripts/install_linux_build_deps.sh
-python -m pip install --upgrade pip build cibuildwheel
+python -m pip install --upgrade pip build cibuildwheel auditwheel
 python -m cibuildwheel --platform linux --output-dir dist
 ```
 
-If you run [scripts/build_pjsip_linux.sh](/home/ubuntu/dev/pjsua2-python/scripts/build_pjsip_linux.sh) directly, it now checks for required tools like `swig` before starting the long upstream compile.
+This pulls the `manylinux2014` Docker image and builds wheels for cp38–cp312 inside the same container CI uses. Resulting wheels land in `dist/`.
 
-For a host-built wheel plus `auditwheel` repair on the current machine:
+#### Quick single-version validation (recommended for iterating on build script changes)
+
+Use the focused helper to test **cp312 only** (the most likely to break due to `distutils` removal):
 
 ```bash
-./scripts/build_linux_wheel.sh
+# Prerequisites — one-time setup
+sudo apt-get install -y docker.io
+sudo systemctl start docker
+sudo pip3 install --break-system-packages cibuildwheel
+
+# Run the cp312-only test (~5 min, uses the exact manylinux2014 Docker image CI uses)
+bash scripts/test_local_cp312.sh
 ```
 
-That helper produces a repaired wheel in `wheelhouse/` for the current host policy level.
+The script at `scripts/test_local_cp312.sh` sets `CIBW_BUILD=cp312-*` and runs cibuildwheel inside the manylinux2014 container, emitting the wheel into `dist/`. Failures are identical to what CI would show, without the 15-minute wait per push.
+
+> **Why not just run `bash scripts/build_pjsip_linux.sh` directly?**
+> The host build uses your local Python and a cached `build/pjproject` tree, so it passes even when the CI container would fail (missing `setuptools`, wrong Python version, stale build artifacts). Always use the Docker-based test to validate changes to the build scripts.
 
 ### macOS
 
