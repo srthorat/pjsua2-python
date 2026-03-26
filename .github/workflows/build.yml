@@ -21,12 +21,16 @@ jobs:
         include:
           - runner: ubuntu-22.04
             archs: x86_64
+            macosx_deployment_target: ""
           - runner: macos-15-intel
             archs: x86_64
+            macosx_deployment_target: "15.0"
           - runner: macos-14
             archs: arm64
+            macosx_deployment_target: "14.0"
           - runner: windows-2022
             archs: AMD64
+            macosx_deployment_target: ""
 
     runs-on: ${{ matrix.runner }}
 
@@ -66,6 +70,7 @@ jobs:
       - name: Build wheels
         env:
           CIBW_ARCHS: ${{ matrix.archs }}
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
           PJSIP_REF: ${{ steps.version.outputs.pjsip_ref }}
         run: python -m cibuildwheel --output-dir dist
 
