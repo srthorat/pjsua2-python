@@ -23,33 +23,12 @@ if not pjdir or not os.path.isdir(pjdir):
     )
 
 # ---------------------------------------------------------------------------
-# Read PJ version from version.mak
+# PJ version — hardcoded to match the checked-out tag (2.15.1)
+# version.mak uses GNU make variable expansion ($(VAR)) which cannot be
+# parsed with a simple line-by-line reader without executing make, so we
+# avoid that and just hardcode the version string here.
 # ---------------------------------------------------------------------------
 pj_version = "2.15.1"
-try:
-    major = minor = rev = suffix = ""
-    with open(os.path.join(pjdir, "version.mak")) as vf:
-        for line in vf:
-            if "PJ_VERSION_MAJOR" in line and "=" in line:
-                major = line.split("=", 1)[1].strip()
-            elif "PJ_VERSION_MINOR" in line and "=" in line:
-                minor = line.split("=", 1)[1].strip()
-            elif (
-                "PJ_VERSION_REV" in line
-                and "MINOR" not in line
-                and "=" in line
-            ):
-                rev = line.split("=", 1)[1].strip()
-            elif "PJ_VERSION_SUFFIX" in line and "=" in line:
-                suffix = line.split("=", 1)[1].strip()
-    if major:
-        pj_version = major + "." + minor
-        if rev:
-            pj_version += "." + rev
-        if suffix:
-            pj_version += suffix
-except Exception as exc:
-    print(f"Warning: could not read version.mak: {exc}", flush=True)
 
 # ---------------------------------------------------------------------------
 # Include directories
