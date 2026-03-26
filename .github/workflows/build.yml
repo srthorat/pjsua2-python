@@ -125,22 +125,58 @@ jobs:
             python: "3.8"
           - runner: ubuntu-22.04
             artifact: wheels-ubuntu-22.04
+            python: "3.9"
+          - runner: ubuntu-22.04
+            artifact: wheels-ubuntu-22.04
+            python: "3.10"
+          - runner: ubuntu-22.04
+            artifact: wheels-ubuntu-22.04
+            python: "3.11"
+          - runner: ubuntu-22.04
+            artifact: wheels-ubuntu-22.04
             python: "3.12"
           - runner: macos-15-intel
             artifact: wheels-macos-15-intel
             python: "3.8"
+          - runner: macos-15-intel
+            artifact: wheels-macos-15-intel
+            python: "3.9"
+          - runner: macos-15-intel
+            artifact: wheels-macos-15-intel
+            python: "3.10"
+          - runner: macos-15-intel
+            artifact: wheels-macos-15-intel
+            python: "3.11"
           - runner: macos-15-intel
             artifact: wheels-macos-15-intel
             python: "3.12"
           - runner: macos-14
             artifact: wheels-macos-14
             python: "3.8"
+          - runner: macos-14
+            artifact: wheels-macos-14
+            python: "3.9"
+          - runner: macos-14
+            artifact: wheels-macos-14
+            python: "3.10"
+          - runner: macos-14
+            artifact: wheels-macos-14
+            python: "3.11"
           - runner: macos-14
             artifact: wheels-macos-14
             python: "3.12"
           - runner: windows-2022
             artifact: wheels-windows-2022
             python: "3.8"
+          - runner: windows-2022
+            artifact: wheels-windows-2022
+            python: "3.9"
+          - runner: windows-2022
+            artifact: wheels-windows-2022
+            python: "3.10"
+          - runner: windows-2022
+            artifact: wheels-windows-2022
+            python: "3.11"
           - runner: windows-2022
             artifact: wheels-windows-2022
             python: "3.12"
