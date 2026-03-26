@@ -62,10 +62,12 @@ if (-not (Test-Path $slnPath)) {
 }
 
 Write-Host "Building pjproject native libraries (Release/x64) via MSBuild..."
+# /p:PlatformToolset=v143 overrides the v140 (VS2015) toolset in the .sln; the
+# GitHub Actions windows-2022 runner ships VS 2022 (v143) only.
 if ($hasCompilerInPath) {
-    msbuild "$slnPath" /t:Build /p:Configuration=Release /p:Platform=x64 /m /nologo /verbosity:minimal
+    msbuild "$slnPath" /t:Build /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /m /nologo /verbosity:minimal
 } else {
-    $msbuildCmd = "call `"$escapedVsDevCmd`" -arch=amd64 -host_arch=amd64 && msbuild `"$slnPath`" /t:Build /p:Configuration=Release /p:Platform=x64 /m /nologo /verbosity:minimal"
+    $msbuildCmd = "call `"$escapedVsDevCmd`" -arch=amd64 -host_arch=amd64 && msbuild `"$slnPath`" /t:Build /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 /m /nologo /verbosity:minimal"
     cmd.exe /c $msbuildCmd
 }
 if ($LASTEXITCODE -ne 0) {
