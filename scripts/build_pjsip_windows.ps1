@@ -75,10 +75,13 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ── Step 2: Build SWIG Python bindings ───────────────────────────────────────
-# Set MSYSTEM to empty string so pjproject's setup.py (which does
-# os.environ["MSYSTEM"] without .get()) doesn't raise KeyError on MSVC.
-# An empty value causes the MSVC code path to be taken correctly.
+# Set MSYSTEM to empty string so any downstream code that inspects it
+# (e.g. pjproject setup.py) doesn't raise a KeyError on MSVC.
 $env:MSYSTEM = ""
+# Expose pjproject root for setup_pjsua2_windows.py (it reads PJDIR).
+$env:PJDIR = $PjprojectDir
+# Path to our Windows-specific setup script (bypasses helper.mak / GNU make).
+$setupMsvc = Join-Path $RootDir "scripts\setup_pjsua2_windows.py"
 
 Push-Location $SwigDir
 try {
@@ -103,9 +106,9 @@ try {
     & $PythonExe -m pip install --quiet setuptools
 
     if ($hasCompilerInPath) {
-        & $PythonExe setup.py build_ext --inplace
+        & $PythonExe $setupMsvc build_ext --inplace
     } else {
-        $buildCommand = "call `"$escapedVsDevCmd`" -arch=amd64 -host_arch=amd64 && set MSYSTEM= && `"$escapedPythonExe`" setup.py build_ext --inplace"
+        $buildCommand = "call `"$escapedVsDevCmd`" -arch=amd64 -host_arch=amd64 && set MSYSTEM= && set `"PJDIR=$PjprojectDir`" && `"$escapedPythonExe`" `"$setupMsvc`" build_ext --inplace"
         cmd.exe /c $buildCommand
     }
     if ($LASTEXITCODE -ne 0) {
