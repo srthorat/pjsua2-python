@@ -34,7 +34,7 @@ popd >/dev/null
 
 pushd "${SWIG_DIR}" >/dev/null
 make clean || true
-make PYTHON="${PYTHON_BIN}"
+make PYTHON_EXE="${PYTHON_BIN}"
 while IFS= read -r extension_path; do
   patchelf --set-rpath '$ORIGIN' "${extension_path}" || true
 done < <(find build -type f -name '_pjsua2*.so' -print)
