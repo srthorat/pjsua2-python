@@ -186,7 +186,7 @@ If you use the local Linux helper script above, install from `wheelhouse/*.whl` 
 The included workflow builds wheels on:
 
 - `ubuntu-22.04`
-- `macos-13` for Intel
+- `macos-15-intel` for Intel
 - `macos-14` for ARM
 - `windows-2022`
 
@@ -200,6 +200,16 @@ For tagged releases, the workflow now does four things in order:
 Artifacts are still uploaded as workflow artifacts during the run, but tagged releases now also produce a proper GitHub Release section with downloadable build outputs.
 
 GitHub Actions is the release authority for distributable wheels. Local host wheel helpers are mainly for validation and debugging.
+
+## Publishing
+
+The full release and PyPI publishing procedure now lives in [publish.md](/home/ubuntu/dev/pjsua2-python/publish.md).
+
+Keep the release order strict:
+
+1. fix GitHub Actions until all build and release jobs are green
+2. verify the generated artifacts on GitHub
+3. only then configure or use PyPI publishing
 
 ## How `pip install` works for users
 
