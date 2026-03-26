@@ -85,7 +85,8 @@ try {
     # Generate pjsua2_wrap.cpp from pjsua2.i using SWIG.
     # On Linux/macOS the Makefile does this; on Windows we must do it explicitly.
     # pjsua2.i lives one directory up from the python/ subdir.
-    $swigIface = Join-Path $SwigDir ".." "pjsua2.i"
+    # Note: Join-Path with 3 args requires PS6+; use Split-Path for PS5.1 compat.
+    $swigIface = Join-Path (Split-Path $SwigDir -Parent) "pjsua2.i"
     Write-Host "Generating SWIG wrapper (pjsua2_wrap.cpp)..."
     swig -c++ -python "-I$PjprojectDir" -o pjsua2_wrap.cpp "$swigIface"
     if ($LASTEXITCODE -ne 0) {
