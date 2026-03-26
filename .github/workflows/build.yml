@@ -22,19 +22,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-22.04
-            archs: x86_64
-            macosx_deployment_target: ""
-          - runner: macos-15-intel
-            archs: x86_64
-            macosx_deployment_target: "15.0"
-          - runner: macos-14
-            archs: arm64
-            macosx_deployment_target: "14.0"
-          # Windows fix pending — keeping disabled for now
-          # - runner: windows-2022
-          #   archs: AMD64
+          # Linux and macOS verified OK — disabled while fixing Windows
+          # - runner: ubuntu-22.04
+          #   archs: x86_64
           #   macosx_deployment_target: ""
+          # - runner: macos-15-intel
+          #   archs: x86_64
+          #   macosx_deployment_target: "15.0"
+          # - runner: macos-14
+          #   archs: arm64
+          #   macosx_deployment_target: "14.0"
+          - runner: windows-2022
+            archs: AMD64
+            macosx_deployment_target: ""
 
     runs-on: ${{ matrix.runner }}
 
