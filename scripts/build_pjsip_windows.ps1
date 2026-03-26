@@ -82,6 +82,16 @@ $env:MSYSTEM = ""
 
 Push-Location $SwigDir
 try {
+    # Generate pjsua2_wrap.cpp from pjsua2.i using SWIG.
+    # On Linux/macOS the Makefile does this; on Windows we must do it explicitly.
+    # pjsua2.i lives one directory up from the python/ subdir.
+    $swigIface = Join-Path $SwigDir ".." "pjsua2.i"
+    Write-Host "Generating SWIG wrapper (pjsua2_wrap.cpp)..."
+    swig -c++ -python "-I$PjprojectDir" -o pjsua2_wrap.cpp "$swigIface"
+    if ($LASTEXITCODE -ne 0) {
+        throw "SWIG generation failed with exit code $LASTEXITCODE"
+    }
+
     # setuptools (and distutils shim) was removed from Python 3.12 stdlib.
     & $PythonExe -m pip install --quiet setuptools
 
