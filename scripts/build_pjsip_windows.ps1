@@ -55,7 +55,8 @@ $escapedPythonExe = $PythonExe.Replace('"', '""')
 # ── Step 1: Build pjproject native libraries via MSBuild ─────────────────────
 # On Windows, pjproject uses VS project files rather than autoconf/make.
 # The SWIG setup.py links against these .lib files, so they must exist first.
-$slnPath = Join-Path $PjprojectDir "build\vs\pjproject-vs14.sln"
+# The solution file lives in the pjproject root (not in build/vs/).
+$slnPath = Join-Path $PjprojectDir "pjproject-vs14.sln"
 if (-not (Test-Path $slnPath)) {
     throw "pjproject VS solution not found: $slnPath"
 }
