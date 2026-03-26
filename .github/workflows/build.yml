@@ -7,6 +7,8 @@ on:
         description: "Optional pjproject tag, branch, or commit override"
         required: false
   push:
+    branches:
+      - main
     tags:
       - "v*"
 
