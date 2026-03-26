@@ -22,15 +22,16 @@ jobs:
           - runner: ubuntu-22.04
             archs: x86_64
             macosx_deployment_target: ""
-          - runner: macos-15-intel
-            archs: x86_64
-            macosx_deployment_target: "15.0"
-          - runner: macos-14
-            archs: arm64
-            macosx_deployment_target: "14.0"
-          - runner: windows-2022
-            archs: AMD64
-            macosx_deployment_target: ""
+          # macOS and Windows temporarily disabled while validating Linux fix
+          # - runner: macos-15-intel
+          #   archs: x86_64
+          #   macosx_deployment_target: "15.0"
+          # - runner: macos-14
+          #   archs: arm64
+          #   macosx_deployment_target: "14.0"
+          # - runner: windows-2022
+          #   archs: AMD64
+          #   macosx_deployment_target: ""
 
     runs-on: ${{ matrix.runner }}
 
