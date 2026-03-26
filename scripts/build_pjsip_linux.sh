@@ -28,7 +28,7 @@ export CFLAGS="${CFLAGS:-} -fPIC -O2"
 export CXXFLAGS="${CXXFLAGS:-} -fPIC -O2"
 ./configure --disable-shared --disable-sound --disable-video
 make dep
-make -j"$(getconf _NPROCESSORS_ONLN)"
+make -j"$(getconf _NPROCESSORS_ONLN)" lib
 popd >/dev/null
 
 pushd "${SWIG_DIR}" >/dev/null

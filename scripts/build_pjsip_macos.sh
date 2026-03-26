@@ -33,7 +33,7 @@ export LDFLAGS="${LDFLAGS:-} ${ARCH_FLAGS} -L${OPENSSL_PREFIX}/lib"
 export CPPFLAGS="${CPPFLAGS:-} -I${OPENSSL_PREFIX}/include"
 ./configure --disable-shared --disable-sound --disable-video
 make dep
-make -j"${CPU_COUNT}"
+make -j"${CPU_COUNT}" lib
 popd >/dev/null
 
 pushd "${SWIG_DIR}" >/dev/null
