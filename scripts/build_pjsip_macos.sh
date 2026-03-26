@@ -40,8 +40,11 @@ make -j"${CPU_COUNT}" lib
 popd >/dev/null
 
 pushd "${SWIG_DIR}" >/dev/null
+# setuptools (and distutils shim) was removed from Python 3.12 stdlib; ensure
+# it is available for whichever interpreter cibuildwheel selected.
+"${PYTHON_BIN}" -m pip install --quiet setuptools
 make clean || true
-make PYTHON="${PYTHON_BIN}"
+make PYTHON_EXE="${PYTHON_BIN}"
 while IFS= read -r extension_path; do
   install_name_tool -add_rpath @loader_path "${extension_path}" || true
 done < <(find build -type f -name '_pjsua2*.so' -print)

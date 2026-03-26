@@ -12,6 +12,9 @@ on:
     tags:
       - "v*"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build ${{ matrix.runner }} wheels
@@ -22,13 +25,13 @@ jobs:
           - runner: ubuntu-22.04
             archs: x86_64
             macosx_deployment_target: ""
-          # macOS and Windows temporarily disabled while validating Linux fix
-          # - runner: macos-15-intel
-          #   archs: x86_64
-          #   macosx_deployment_target: "15.0"
-          # - runner: macos-14
-          #   archs: arm64
-          #   macosx_deployment_target: "14.0"
+          - runner: macos-15-intel
+            archs: x86_64
+            macosx_deployment_target: "15.0"
+          - runner: macos-14
+            archs: arm64
+            macosx_deployment_target: "14.0"
+          # Windows fix pending — keeping disabled for now
           # - runner: windows-2022
           #   archs: AMD64
           #   macosx_deployment_target: ""
