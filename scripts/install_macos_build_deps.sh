@@ -6,5 +6,6 @@ if ! command -v brew >/dev/null 2>&1; then
   exit 1
 fi
 
-brew update
+export HOMEBREW_NO_AUTO_UPDATE=1
+
 brew install swig autoconf automake libtool openssl@3

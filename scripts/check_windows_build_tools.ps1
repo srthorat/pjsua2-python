@@ -2,6 +2,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $missing = New-Object System.Collections.Generic.List[string]
+$vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
 
 foreach ($tool in @("git", "python", "swig")) {
     if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
@@ -11,8 +12,16 @@ foreach ($tool in @("git", "python", "swig")) {
 
 $hasMsbuild = [bool](Get-Command msbuild -ErrorAction SilentlyContinue)
 $hasCl = [bool](Get-Command cl -ErrorAction SilentlyContinue)
+$hasVisualStudio = $false
 
-if (-not $hasMsbuild -and -not $hasCl) {
+if (Test-Path $vswhere) {
+    $installationPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
+    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($installationPath)) {
+        $hasVisualStudio = $true
+    }
+}
+
+if (-not $hasMsbuild -and -not $hasCl -and -not $hasVisualStudio) {
     $missing.Add("msbuild-or-cl")
 }
 

@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_ROOT="${ROOT_DIR}/build"
 PJPROJECT_DIR="${BUILD_ROOT}/pjproject"
 SWIG_DIR="${PJPROJECT_DIR}/pjsip-apps/src/swig/python"
+OPENSSL_COMPAT_HEADER="${ROOT_DIR}/scripts/openssl_compat_1_0.h"
 PYTHON_BIN="${PYTHON:-python}"
 PACKAGE_VERSION="$(${PYTHON_BIN} "${ROOT_DIR}/scripts/get_package_version.py")"
 PJSIP_REF="${PJSIP_REF:-${PACKAGE_VERSION}}"
@@ -24,7 +25,7 @@ git -C "${PJPROJECT_DIR}" clean -fdx
 cp "${ROOT_DIR}/scripts/config_site.h" "${PJPROJECT_DIR}/pjlib/include/pj/config_site.h"
 
 pushd "${PJPROJECT_DIR}" >/dev/null
-export CFLAGS="${CFLAGS:-} -fPIC -O2"
+export CFLAGS="${CFLAGS:-} -fPIC -O2 -include ${OPENSSL_COMPAT_HEADER}"
 export CXXFLAGS="${CXXFLAGS:-} -fPIC -O2"
 ./configure --disable-shared --disable-sound --disable-video
 make dep

@@ -11,6 +11,7 @@ PJSIP_REF="${PJSIP_REF:-${PACKAGE_VERSION}}"
 CPU_COUNT="$(sysctl -n hw.ncpu)"
 ARCH_FLAGS="${ARCHFLAGS:-}"
 OPENSSL_PREFIX="$(brew --prefix openssl@3)"
+MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-$(sw_vers -productVersion | cut -d. -f1).0}"
 
 bash "${ROOT_DIR}/scripts/check_macos_build_tools.sh"
 
@@ -27,10 +28,12 @@ git -C "${PJPROJECT_DIR}" clean -fdx
 cp "${ROOT_DIR}/scripts/config_site.h" "${PJPROJECT_DIR}/pjlib/include/pj/config_site.h"
 
 pushd "${PJPROJECT_DIR}" >/dev/null
-export CFLAGS="${CFLAGS:-} ${ARCH_FLAGS} -fPIC -O2"
-export CXXFLAGS="${CXXFLAGS:-} ${ARCH_FLAGS} -fPIC -O2"
-export LDFLAGS="${LDFLAGS:-} ${ARCH_FLAGS} -L${OPENSSL_PREFIX}/lib"
+export MACOSX_DEPLOYMENT_TARGET
+export CFLAGS="${CFLAGS:-} ${ARCH_FLAGS} -fPIC -O2 -I${OPENSSL_PREFIX}/include"
+export CXXFLAGS="${CXXFLAGS:-} ${ARCH_FLAGS} -fPIC -O2 -I${OPENSSL_PREFIX}/include"
 export CPPFLAGS="${CPPFLAGS:-} -I${OPENSSL_PREFIX}/include"
+export LDFLAGS="${LDFLAGS:-} ${ARCH_FLAGS} -L${OPENSSL_PREFIX}/lib"
+export PKG_CONFIG_PATH="${OPENSSL_PREFIX}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
 ./configure --disable-shared --disable-sound --disable-video
 make dep
 make -j"${CPU_COUNT}" lib
