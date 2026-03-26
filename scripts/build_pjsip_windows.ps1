@@ -45,22 +45,51 @@ Copy-Item -Force (Join-Path $RootDir "scripts\config_site.h") (Join-Path $Pjproj
 $vsDevCmd = Get-VsDevCmd
 $hasCompilerInPath = [bool](Get-Command cl -ErrorAction SilentlyContinue)
 
+if (-not $vsDevCmd -and -not $hasCompilerInPath) {
+    throw "Visual Studio developer environment was not available for the Windows build."
+}
+
+$escapedVsDevCmd = if ($vsDevCmd) { $vsDevCmd.Replace('"', '""') } else { $null }
+$escapedPythonExe = $PythonExe.Replace('"', '""')
+
+# ── Step 1: Build pjproject native libraries via MSBuild ─────────────────────
+# On Windows, pjproject uses VS project files rather than autoconf/make.
+# The SWIG setup.py links against these .lib files, so they must exist first.
+$slnPath = Join-Path $PjprojectDir "build\vs\pjproject-vs14.sln"
+if (-not (Test-Path $slnPath)) {
+    throw "pjproject VS solution not found: $slnPath"
+}
+
+Write-Host "Building pjproject native libraries (Release/x64) via MSBuild..."
+if ($hasCompilerInPath) {
+    msbuild "$slnPath" /t:Build /p:Configuration=Release /p:Platform=x64 /m /nologo /verbosity:minimal
+} else {
+    $msbuildCmd = "call `"$escapedVsDevCmd`" -arch=amd64 -host_arch=amd64 && msbuild `"$slnPath`" /t:Build /p:Configuration=Release /p:Platform=x64 /m /nologo /verbosity:minimal"
+    cmd.exe /c $msbuildCmd
+}
+if ($LASTEXITCODE -ne 0) {
+    throw "MSBuild pjproject failed with exit code $LASTEXITCODE"
+}
+
+# ── Step 2: Build SWIG Python bindings ───────────────────────────────────────
+# Set MSYSTEM to empty string so pjproject's setup.py (which does
+# os.environ["MSYSTEM"] without .get()) doesn't raise KeyError on MSVC.
+# An empty value causes the MSVC code path to be taken correctly.
+$env:MSYSTEM = ""
+
 Push-Location $SwigDir
 try {
+    # setuptools (and distutils shim) was removed from Python 3.12 stdlib.
+    & $PythonExe -m pip install --quiet setuptools
+
     if ($hasCompilerInPath) {
         & $PythonExe setup.py build_ext --inplace
-    }
-    elseif ($vsDevCmd) {
-        $escapedVsDevCmd = $vsDevCmd.Replace('"', '""')
-        $escapedPythonExe = $PythonExe.Replace('"', '""')
-        $buildCommand = "call `"$escapedVsDevCmd`" -arch=amd64 -host_arch=amd64 && `"$escapedPythonExe`" setup.py build_ext --inplace"
+    } else {
+        $buildCommand = "call `"$escapedVsDevCmd`" -arch=amd64 -host_arch=amd64 && set MSYSTEM= && `"$escapedPythonExe`" setup.py build_ext --inplace"
         cmd.exe /c $buildCommand
-        if ($LASTEXITCODE -ne 0) {
-            throw "Windows SWIG build failed with exit code $LASTEXITCODE"
-        }
     }
-    else {
-        throw "Visual Studio developer environment was not available for the Windows SWIG build."
+    if ($LASTEXITCODE -ne 0) {
+        throw "Windows SWIG build failed with exit code $LASTEXITCODE"
     }
 }
 finally {
