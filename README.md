@@ -190,7 +190,14 @@ The included workflow builds wheels on:
 - `macos-14` for ARM
 - `windows-2022`
 
-Artifacts are uploaded on every tagged build. A second workflow publishes them to PyPI when configured with trusted publishing or a token.
+For tagged releases, the workflow now does four things in order:
+
+1. builds and tests all platform wheels
+2. builds and validates the source distribution
+3. creates a GitHub Release and attaches all wheels, the source tarball, and a `SHA256SUMS.txt` file
+4. publishes the same artifacts to PyPI when trusted publishing or a token is configured
+
+Artifacts are still uploaded as workflow artifacts during the run, but tagged releases now also produce a proper GitHub Release section with downloadable build outputs.
 
 GitHub Actions is the release authority for distributable wheels. Local host wheel helpers are mainly for validation and debugging.
 
