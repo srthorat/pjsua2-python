@@ -33,6 +33,9 @@ make -j"$(getconf _NPROCESSORS_ONLN)" lib
 popd >/dev/null
 
 pushd "${SWIG_DIR}" >/dev/null
+# setuptools (and distutils shim) was removed from Python 3.12 stdlib; ensure
+# it is available for whichever interpreter cibuildwheel selected.
+"${PYTHON_BIN}" -m pip install --quiet setuptools
 make clean || true
 make PYTHON_EXE="${PYTHON_BIN}"
 while IFS= read -r extension_path; do
