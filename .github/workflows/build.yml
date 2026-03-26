@@ -1,0 +1,91 @@
+name: Build Wheels
+
+on:
+  workflow_dispatch:
+    inputs:
+      pjsip_ref:
+        description: "Optional pjproject tag, branch, or commit override"
+        required: false
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            archs: x86_64
+          - runner: macos-13
+            archs: x86_64
+          - runner: macos-14
+            archs: arm64
+          - runner: windows-2022
+            archs: AMD64
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install shared build frontend
+        run: python -m pip install --upgrade pip cibuildwheel build
+
+      - name: Install Linux wheel repair tools
+        if: startsWith(matrix.runner, 'ubuntu-')
+        run: python -m pip install auditwheel
+
+      - name: Install macOS wheel repair tools
+        if: startsWith(matrix.runner, 'macos-')
+        run: python -m pip install delocate
+
+      - name: Determine bundled PJSIP version
+        id: version
+        shell: bash
+        run: |
+          package_version="$(python scripts/get_package_version.py)"
+          requested_ref="${{ github.event.inputs.pjsip_ref }}"
+          if [[ -n "${requested_ref}" ]]; then
+            echo "pjsip_ref=${requested_ref}" >> "$GITHUB_OUTPUT"
+          else
+            echo "pjsip_ref=${package_version}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "package_version=${package_version}" >> "$GITHUB_OUTPUT"
+
+      - name: Build wheels
+        env:
+          CIBW_ARCHS: ${{ matrix.archs }}
+          PJSIP_REF: ${{ steps.version.outputs.pjsip_ref }}
+        run: python -m cibuildwheel --output-dir dist
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.runner }}
+          path: dist/*
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download built wheels
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: wheels-*
+          merge-multiple: true
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

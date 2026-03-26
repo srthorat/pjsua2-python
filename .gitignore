@@ -1,0 +1,14 @@
+build/
+dist/
+wheelhouse/
+*.egg-info/
+.pytest_cache/
+.venv/
+.venv-test-wheel/
+venv/
+__pycache__/
+scripts/__pycache__/
+pjsua2/_pjsua2.*
+pjsua2/pjsua2.py
+pjsua2/*.dll
+pjsua2/*.dylib
