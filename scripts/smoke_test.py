@@ -21,6 +21,7 @@ Usage:
 import argparse
 import sys
 import threading
+from typing import Optional
 
 
 # ---------------------------------------------------------------------------
@@ -32,7 +33,7 @@ def check_import():
     return pjsua2
 
 
-def check_version(expected: str | None):
+def check_version(expected: Optional[str]):
     from importlib.metadata import version
     installed = version("pjsua2_python")
     if expected and installed != expected:
