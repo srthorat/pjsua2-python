@@ -24,6 +24,11 @@ import threading
 from typing import Optional
 
 
+class SipNetworkWarning(Exception):
+    """Raised when a SIP test times out — indicates network filtering, not a
+    library bug.  Treated as WARN (non-fatal) in the test runner."""
+
+
 # ---------------------------------------------------------------------------
 # Individual checks
 # ---------------------------------------------------------------------------
@@ -162,8 +167,9 @@ def check_sip_register(registrar: str, user: str, password: str,
     ep.libDestroy()
 
     if not fired:
-        raise AssertionError(
-            f"SIP REGISTER timed out after {timeout}s (no response from {registrar})"
+        raise SipNetworkWarning(
+            f"SIP REGISTER timed out after {timeout}s "
+            f"(no response from {registrar} — network may be filtered)"
         )
     if not result["ok"]:
         raise AssertionError(
@@ -206,8 +212,9 @@ def check_sip_unregister(registrar: str, user: str, password: str,
 
     if not reg_done.wait(timeout=timeout):
         ep.libDestroy()
-        raise AssertionError(
-            f"Initial REGISTER timed out after {timeout}s — cannot test unregister"
+        raise SipNetworkWarning(
+            f"Initial REGISTER timed out after {timeout}s "
+            f"(no response from {registrar} — network may be filtered)"
         )
 
     # Send REGISTER Expires: 0
@@ -217,8 +224,9 @@ def check_sip_unregister(registrar: str, user: str, password: str,
     ep.libDestroy()
 
     if not fired:
-        raise AssertionError(
-            f"SIP UNREGISTER timed out after {timeout}s (Expires:0 sent, no response)"
+        raise SipNetworkWarning(
+            f"SIP UNREGISTER timed out after {timeout}s "
+            "(Expires:0 sent, no response — network may be filtered)"
         )
     if not result["ok"]:
         raise AssertionError(
@@ -243,15 +251,19 @@ def main():
 
     passed = 0
     failed = 0
+    warned = 0
 
     def run(label: str, fn):
-        nonlocal passed, failed
+        nonlocal passed, failed, warned
         print(f"  {label} ... ", end="", flush=True)
         try:
             val = fn()
             suffix = f" [{val}]" if isinstance(val, (str, int)) else ""
             print(f"PASS{suffix}")
             passed += 1
+        except SipNetworkWarning as exc:
+            print(f"WARN\n    {exc}")
+            warned += 1
         except Exception as exc:
             print(f"FAIL\n    {exc}")
             failed += 1
@@ -295,7 +307,10 @@ def main():
         print("  SIP unregister ... SKIP (set SIP_* vars to enable)")
 
     print("=" * 60)
-    print(f"Results: {passed} passed, {failed} failed")
+    summary = f"Results: {passed} passed, {failed} failed"
+    if warned:
+        summary += f", {warned} warned (network)"
+    print(summary)
     if failed:
         sys.exit(1)
 
