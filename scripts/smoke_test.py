@@ -112,48 +112,40 @@ def check_endpoint_lifecycle():
     ep.libDestroy()
 
 
-def check_sip_register_unregister(registrar: str, user: str, password: str,
-                                   domain: str, timeout: int = 30):
-    """Register then explicitly unregister, verifying both callbacks fire."""
+def _make_endpoint():
+    """Create, init and start a minimal pjsua2 Endpoint, return (ep, acc_class)."""
     import pjsua2
-
-    reg_result: dict   = {"ok": False, "code": None, "reason": ""}
-    unreg_result: dict = {"ok": False, "code": None, "reason": ""}
-    reg_done   = threading.Event()
-    unreg_done = threading.Event()
-
-    class _Account(pjsua2.Account):
-        def onRegState(self, prm):
-            code = prm.code
-            reason = prm.reason
-            expiry = prm.expiration
-            if not reg_done.is_set():
-                # First callback → registration response
-                reg_result["code"]   = code
-                reg_result["reason"] = reason
-                if code // 100 == 2 and expiry > 0:
-                    reg_result["ok"] = True
-                reg_done.set()
-            else:
-                # Second callback → unregistration response (expiry == 0)
-                unreg_result["code"]   = code
-                unreg_result["reason"] = reason
-                if code // 100 == 2 and expiry == 0:
-                    unreg_result["ok"] = True
-                unreg_done.set()
-
     ep = pjsua2.Endpoint()
     cfg = pjsua2.EpConfig()
     cfg.logConfig.level = 0
     cfg.logConfig.consoleLevel = 0
     ep.libCreate()
     ep.libInit(cfg)
-
     tp = pjsua2.TransportConfig()
     tp.port = 0
     ep.transportCreate(pjsua2.PJSIP_TRANSPORT_UDP, tp)
     ep.libStart()
+    return ep
 
+
+def check_sip_register(registrar: str, user: str, password: str,
+                        domain: str, timeout: int = 30):
+    """Send REGISTER and wait for 200 OK with Expires > 0."""
+    import pjsua2
+
+    result: dict = {"ok": False, "code": None, "reason": "", "expiry": None}
+    done = threading.Event()
+
+    class _Account(pjsua2.Account):
+        def onRegState(self, prm):
+            result["code"]   = prm.code
+            result["reason"] = prm.reason
+            result["expiry"] = prm.expiration
+            if prm.code // 100 == 2 and prm.expiration > 0:
+                result["ok"] = True
+            done.set()
+
+    ep = _make_endpoint()
     acc = _Account()
     acc_cfg = pjsua2.AccountConfig()
     acc_cfg.idUri = f"sip:{user}@{domain}"
@@ -162,37 +154,70 @@ def check_sip_register_unregister(registrar: str, user: str, password: str,
     acc_cfg.sipConfig.authCreds.append(cred)
     acc.create(acc_cfg)
 
-    # --- Wait for REGISTER 200 OK ---
-    if not reg_done.wait(timeout=timeout):
-        acc.delete()
-        ep.libDestroy()
-        raise AssertionError(
-            f"SIP registration timed out after {timeout}s (no response from {registrar})"
-        )
-    if not reg_result["ok"]:
-        acc.delete()
-        ep.libDestroy()
-        raise AssertionError(
-            f"SIP registration failed: {reg_result['code']} {reg_result['reason']}"
-        )
-
-    # --- Send REGISTER with Expires: 0 (unregister) ---
-    acc.setRegistration(False)
-
-    if not unreg_done.wait(timeout=timeout):
-        acc.delete()
-        ep.libDestroy()
-        raise AssertionError(
-            f"SIP unregistration timed out after {timeout}s"
-        )
-
-    acc.delete()
+    fired = done.wait(timeout=timeout)
     ep.libDestroy()
 
-    if not unreg_result["ok"]:
+    if not fired:
         raise AssertionError(
-            f"SIP unregistration failed: {unreg_result['code']} {unreg_result['reason']}"
+            f"SIP REGISTER timed out after {timeout}s (no response from {registrar})"
         )
+    if not result["ok"]:
+        raise AssertionError(
+            f"SIP REGISTER failed: {result['code']} {result['reason']}"
+        )
+    return f"{result['code']} OK (expires={result['expiry']}s)"
+
+
+def check_sip_unregister(registrar: str, user: str, password: str,
+                          domain: str, timeout: int = 30):
+    """Register first, then send REGISTER with Expires: 0 and wait for 200 OK."""
+    import pjsua2
+
+    reg_done   = threading.Event()
+    unreg_done = threading.Event()
+    result: dict = {"code": None, "reason": "", "ok": False}
+
+    class _Account(pjsua2.Account):
+        def onRegState(self, prm):
+            if not reg_done.is_set():
+                reg_done.set()          # first callback: initial registration
+            else:
+                # second callback: unregistration (Expires: 0)
+                result["code"]   = prm.code
+                result["reason"] = prm.reason
+                result["ok"]     = (prm.code // 100 == 2 and prm.expiration == 0)
+                unreg_done.set()
+
+    ep = _make_endpoint()
+    acc = _Account()
+    acc_cfg = pjsua2.AccountConfig()
+    acc_cfg.idUri = f"sip:{user}@{domain}"
+    acc_cfg.regConfig.registrarUri = f"sip:{registrar}"
+    cred = pjsua2.AuthCredInfo("digest", "*", user, 0, password)
+    acc_cfg.sipConfig.authCreds.append(cred)
+    acc.create(acc_cfg)
+
+    if not reg_done.wait(timeout=timeout):
+        ep.libDestroy()
+        raise AssertionError(
+            f"Initial REGISTER timed out after {timeout}s — cannot test unregister"
+        )
+
+    # Send REGISTER Expires: 0
+    acc.setRegistration(False)
+
+    fired = unreg_done.wait(timeout=timeout)
+    ep.libDestroy()
+
+    if not fired:
+        raise AssertionError(
+            f"SIP UNREGISTER timed out after {timeout}s (Expires:0 sent, no response)"
+        )
+    if not result["ok"]:
+        raise AssertionError(
+            f"SIP UNREGISTER failed: {result['code']} {result['reason']}"
+        )
+    return f"{result['code']} OK (expires=0)"
 
 
 # ---------------------------------------------------------------------------
@@ -249,15 +274,18 @@ def main():
     sip_domain = args.sip_domain or args.sip_registrar
     sip_creds = (args.sip_registrar, args.sip_user, args.sip_password, sip_domain)
     if all(sip_creds):
+        r, u, p, d = args.sip_registrar, args.sip_user, args.sip_password, sip_domain
         run(
-            f"SIP register+unregister ({args.sip_user}@{sip_domain})",
-            lambda: check_sip_register_unregister(
-                args.sip_registrar, args.sip_user,
-                args.sip_password, sip_domain,
-            ),
+            f"SIP register ({u}@{d})",
+            lambda: check_sip_register(r, u, p, d),
+        )
+        run(
+            f"SIP unregister ({u}@{d})",
+            lambda: check_sip_unregister(r, u, p, d),
         )
     else:
-        print("  SIP register+unregister ... SKIP (set SIP_* vars to enable)")
+        print("  SIP register   ... SKIP (set SIP_* vars to enable)")
+        print("  SIP unregister ... SKIP (set SIP_* vars to enable)")
 
     print("=" * 60)
     print(f"Results: {passed} passed, {failed} failed")
