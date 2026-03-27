@@ -1,5 +1,18 @@
 # pjsua2-python
 
+[![Build Wheels](https://github.com/srthorat/pjsua2-python/actions/workflows/build.yml/badge.svg)](https://github.com/srthorat/pjsua2-python/actions/workflows/build.yml)
+[![PyPI](https://img.shields.io/pypi/v/pjsua2-python)](https://pypi.org/project/pjsua2-python/)
+
+Pre-built binary wheels for the [PJSUA2](https://www.pjsip.org/) Python bindings, packaged from upstream `pjproject`.
+
+```bash
+pip install pjsua2-python
+```
+
+Available for Linux (x86_64), macOS (Intel + Apple Silicon), and Windows (AMD64) on Python 3.8–3.12.
+
+---
+
 Reusable binary wheel packaging for PJSUA2 Python bindings built from upstream `pjproject`.
 
 This repository is designed for the problem you called out directly:
@@ -71,11 +84,15 @@ pjsua2-python/
 │   ├── check_macos_build_tools.sh
 │   ├── check_windows_build_tools.ps1
 │   ├── config_site.h
+│   ├── get_package_version.py
 │   ├── install_linux_build_deps.sh
 │   ├── install_macos_build_deps.sh
 │   ├── install_windows_build_deps.ps1
+│   ├── setup_pjsua2_windows.py   ← MSVC-explicit build script (replaces upstream setup.py)
+│   ├── smoke_test.py             ← end-to-end wheel validation + SIP reg/unreg
 │   ├── stage_bindings.py
-│   └── test_import.py
+│   ├── test_import.py
+│   └── test_local_cp312.sh
 ├── MANIFEST.in
 └── pyproject.toml
 ```
@@ -188,35 +205,58 @@ That helper builds the package on the current macOS host and runs `delocate` int
 ## Verify a wheel
 
 ```bash
-python -m pip install dist/*.whl
-python -c "import pjsua2; print(pjsua2.Endpoint())"
+pip install pjsua2-python
+python scripts/smoke_test.py --expected-version 2.15.1
 ```
 
-If you use the local Linux helper script above, install from `wheelhouse/*.whl` instead.
+Expected output:
+
+```
+============================================================
+  import pjsua2        ... PASS
+  version check        ... PASS [2.15.1]
+  module attributes    ... PASS [96 attrs]
+  endpoint lifecycle   ... PASS
+  SIP register         ... PASS [200 OK (expires=3600s)]
+  SIP unregister       ... PASS [200 OK (expires=0)]
+============================================================
+Results: 6 passed, 0 failed
+```
 
 ## GitHub Actions
 
 The included workflow builds wheels on:
 
-- `ubuntu-22.04`
-- `macos-15-intel` for Intel
-- `macos-14` for ARM
-- `windows-2022`
+- `ubuntu-22.04` (manylinux2014_x86_64)
+- `macos-15-intel` (x86_64)
+- `macos-14` (arm64)
+- `windows-2022` (AMD64)
 
-For tagged releases, the workflow now does four things in order:
+For every push to `main` the pipeline runs these jobs in order:
 
-1. builds and tests all platform wheels
-2. builds and validates the source distribution
-3. creates a GitHub Release and attaches all wheels, the source tarball, and a `SHA256SUMS.txt` file
-4. publishes the same artifacts to PyPI when trusted publishing or a token is configured
+1. **Build** — `cibuildwheel` builds 5 wheels (cp38–cp312) per platform = **20 wheels total**
+2. **Build source package** — `python -m build --sdist` + `twine check`
+3. **Verify** — 20 smoke-test jobs (one per wheel): installs the wheel, checks version, validates 96+ pjsua2 class/struct attributes, runs endpoint lifecycle, and tests SIP REGISTER + UNREGISTER against `opensips.org` (timeouts on network-filtered runners are treated as warnings, not failures)
 
-Artifacts are still uploaded as workflow artifacts during the run, but tagged releases now also produce a proper GitHub Release section with downloadable build outputs.
+For tagged releases (`v*`) two additional jobs run after verify passes:
+
+4. **Create GitHub Release** — attaches all 20 wheels, the sdist, and `SHA256SUMS.txt`
+5. **Publish to PyPI** — uploads via OIDC trusted publishing
+
+### SIP smoke test credentials
+
+The SIP register/unregister tests use repository variables (not secrets):
+
+| Variable | Example |
+|---|---|
+| `SIP_SERVER` | `opensips.org` |
+| `SIP_USER` | `sthorat1` |
+| `SIP_PASSWORD` | your password |
+
+Set these under **Settings → Secrets and variables → Actions → Variables**.
+If absent, the SIP tests are skipped (non-fatal).
 
 GitHub Actions is the release authority for distributable wheels. Local host wheel helpers are mainly for validation and debugging.
-
-## Publishing
-
-The full release and PyPI publishing procedure now lives in [publish.md](/home/ubuntu/dev/pjsua2-python/publish.md).
 
 Keep the release order strict:
 
