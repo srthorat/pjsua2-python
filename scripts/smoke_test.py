@@ -46,25 +46,53 @@ def check_version(expected: Optional[str]):
 def check_modules(pjlib):
     required = [
         # Core endpoint
-        "Endpoint", "EpConfig", "EpMediaConfig", "EpLogConfig",
+        "Endpoint", "EpConfig", "MediaConfig", "LogConfig", "UaConfig",
         # Transport
         "TransportConfig", "TransportInfo", "PJSIP_TRANSPORT_UDP",
         # Account
         "Account", "AccountConfig", "AccountRegConfig", "AccountSipConfig",
-        "AuthCredInfo",
+        "AccountMediaConfig", "AccountNatConfig", "AccountPresConfig",
+        "AccountMwiConfig", "AccountVideoConfig", "AccountCallConfig",
+        "AccountInfo", "AuthCredInfo",
         # Call
         "Call", "CallInfo", "CallOpParam", "CallSetting",
+        "CallMediaInfo", "CallSendRequestParam",
         # Media
         "Media", "AudioMedia", "AudioMediaPlayer", "AudioMediaRecorder",
-        "MediaFormatAudio", "CodecInfo",
-        # Presence
-        "Buddy", "BuddyConfig", "PresenceStatus",
+        "AudioMediaPort", "AudioDevInfo", "AudDevManager",
+        "MediaFormatAudio", "MediaFormatVideo", "MediaFormat",
+        "MediaEvent", "MediaFrame", "MediaSize",
+        "CodecInfo", "CodecParam", "CodecParamInfo", "CodecParamSetting",
+        "ConfPortInfo", "ToneGenerator", "ToneDesc", "ToneDigit",
+        # Video
+        "VideoMedia", "VideoWindow", "VideoPreview", "VidDevManager",
+        "VideoDevInfo", "VideoMediaTransmitParam",
+        # Presence / IM
+        "Buddy", "BuddyConfig", "BuddyInfo", "PresenceStatus",
         # SIP primitives
-        "SipHeader", "SipEvent",
-        # Callback param structs
-        "OnRegStateParam", "OnCallStateParam", "OnCallMediaStateParam",
-        # Error
-        "Error",
+        "SipHeader", "SipEvent", "SipRxData", "SipTxData",
+        "SipTxOption", "SipTransaction", "SipMediaType",
+        # Callback param structs — account/registration
+        "OnRegStateParam", "OnRegStartedParam",
+        "OnIncomingCallParam", "OnIncomingSubscribeParam",
+        # Callback param structs — call
+        "OnCallStateParam", "OnCallMediaStateParam",
+        "OnCallMediaEventParam", "OnCallSdpCreatedParam",
+        "OnCallTsxStateParam", "OnDtmfDigitParam",
+        "OnCallTransferRequestParam", "OnCallTransferStatusParam",
+        # Callback param structs — presence / IM
+        "OnInstantMessageParam", "OnTypingIndicationParam",
+        "OnBuddyEvSubStateParam",
+        # Callback param structs — misc
+        "OnNatDetectionCompleteParam", "OnTransportStateParam",
+        "OnTimerParam", "OnIpChangeProgressParam",
+        # RTCP / stream stats
+        "RtcpStat", "RtcpStreamStat", "StreamInfo", "StreamStat",
+        # TLS / SRTP
+        "TlsConfig", "SrtpOpt", "SrtpCrypto",
+        # Misc utility
+        "Version", "Error", "LogEntry", "LogWriter",
+        "IpChangeParam", "TimeVal",
     ]
     missing = [a for a in required if not hasattr(pjlib, a)]
     if missing:
