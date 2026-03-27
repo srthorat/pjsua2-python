@@ -138,6 +138,10 @@ def check_sip_register(registrar: str, user: str, password: str,
 
     class _Account(pjsua2.Account):
         def onRegState(self, prm):
+            # 401/407 are digest challenges — pjsua2 retries with credentials
+            # automatically; wait for the final non-challenge response
+            if prm.code in (401, 407):
+                return
             result["code"]   = prm.code
             result["reason"] = prm.reason
             result["expiry"] = prm.expiration
@@ -179,10 +183,13 @@ def check_sip_unregister(registrar: str, user: str, password: str,
 
     class _Account(pjsua2.Account):
         def onRegState(self, prm):
+            # 401/407 are digest challenges — skip and wait for final response
+            if prm.code in (401, 407):
+                return
             if not reg_done.is_set():
-                reg_done.set()          # first callback: initial registration
+                reg_done.set()          # first final callback: initial registration
             else:
-                # second callback: unregistration (Expires: 0)
+                # second final callback: unregistration (Expires: 0)
                 result["code"]   = prm.code
                 result["reason"] = prm.reason
                 result["ok"]     = (prm.code // 100 == 2 and prm.expiration == 0)
