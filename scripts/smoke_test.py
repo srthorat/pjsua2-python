@@ -112,20 +112,35 @@ def check_endpoint_lifecycle():
     ep.libDestroy()
 
 
-def check_sip_registration(registrar: str, user: str, password: str,
-                            domain: str, timeout: int = 20):
+def check_sip_register_unregister(registrar: str, user: str, password: str,
+                                   domain: str, timeout: int = 30):
+    """Register then explicitly unregister, verifying both callbacks fire."""
     import pjsua2
 
-    result: dict = {"ok": False, "code": None, "reason": ""}
-    done = threading.Event()
+    reg_result: dict   = {"ok": False, "code": None, "reason": ""}
+    unreg_result: dict = {"ok": False, "code": None, "reason": ""}
+    reg_done   = threading.Event()
+    unreg_done = threading.Event()
 
     class _Account(pjsua2.Account):
         def onRegState(self, prm):
-            result["code"] = prm.code
-            result["reason"] = prm.reason
-            if prm.code // 100 == 2:
-                result["ok"] = True
-            done.set()
+            code = prm.code
+            reason = prm.reason
+            expiry = prm.expiration
+            if not reg_done.is_set():
+                # First callback → registration response
+                reg_result["code"]   = code
+                reg_result["reason"] = reason
+                if code // 100 == 2 and expiry > 0:
+                    reg_result["ok"] = True
+                reg_done.set()
+            else:
+                # Second callback → unregistration response (expiry == 0)
+                unreg_result["code"]   = code
+                unreg_result["reason"] = reason
+                if code // 100 == 2 and expiry == 0:
+                    unreg_result["ok"] = True
+                unreg_done.set()
 
     ep = pjsua2.Endpoint()
     cfg = pjsua2.EpConfig()
@@ -147,17 +162,36 @@ def check_sip_registration(registrar: str, user: str, password: str,
     acc_cfg.sipConfig.authCreds.append(cred)
     acc.create(acc_cfg)
 
-    fired = done.wait(timeout=timeout)
-    acc.delete()
-    ep.libDestroy()
-
-    if not fired:
+    # --- Wait for REGISTER 200 OK ---
+    if not reg_done.wait(timeout=timeout):
+        acc.delete()
+        ep.libDestroy()
         raise AssertionError(
             f"SIP registration timed out after {timeout}s (no response from {registrar})"
         )
-    if not result["ok"]:
+    if not reg_result["ok"]:
+        acc.delete()
+        ep.libDestroy()
         raise AssertionError(
-            f"SIP registration failed: {result['code']} {result['reason']}"
+            f"SIP registration failed: {reg_result['code']} {reg_result['reason']}"
+        )
+
+    # --- Send REGISTER with Expires: 0 (unregister) ---
+    acc.setRegistration(False)
+
+    if not unreg_done.wait(timeout=timeout):
+        acc.delete()
+        ep.libDestroy()
+        raise AssertionError(
+            f"SIP unregistration timed out after {timeout}s"
+        )
+
+    acc.delete()
+    ep.libDestroy()
+
+    if not unreg_result["ok"]:
+        raise AssertionError(
+            f"SIP unregistration failed: {unreg_result['code']} {unreg_result['reason']}"
         )
 
 
@@ -211,18 +245,19 @@ def main():
     run("module attributes", lambda: f"{check_modules(pjsua2_mod)} attrs")
     run("endpoint lifecycle", check_endpoint_lifecycle)
 
-    sip_creds = (args.sip_registrar, args.sip_user,
-                 args.sip_password, args.sip_domain)
+    # Domain defaults to registrar host when not specified separately
+    sip_domain = args.sip_domain or args.sip_registrar
+    sip_creds = (args.sip_registrar, args.sip_user, args.sip_password, sip_domain)
     if all(sip_creds):
         run(
-            f"SIP registration ({args.sip_user}@{args.sip_domain})",
-            lambda: check_sip_registration(
+            f"SIP register+unregister ({args.sip_user}@{sip_domain})",
+            lambda: check_sip_register_unregister(
                 args.sip_registrar, args.sip_user,
-                args.sip_password, args.sip_domain,
+                args.sip_password, sip_domain,
             ),
         )
     else:
-        print("  SIP registration ... SKIP (set SIP_* secrets to enable)")
+        print("  SIP register+unregister ... SKIP (set SIP_* vars to enable)")
 
     print("=" * 60)
     print(f"Results: {passed} passed, {failed} failed")

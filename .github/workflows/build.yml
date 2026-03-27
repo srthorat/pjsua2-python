@@ -221,17 +221,15 @@ jobs:
         shell: bash
         env:
           EXPECTED_VERSION: ${{ steps.version.outputs.package_version }}
-          SIP_REGISTRAR: ${{ secrets.SIP_REGISTRAR }}
-          SIP_USER: ${{ secrets.SIP_USER }}
-          SIP_PASSWORD: ${{ secrets.SIP_PASSWORD }}
-          SIP_DOMAIN: ${{ secrets.SIP_DOMAIN }}
+          SIP_REGISTRAR: ${{ vars.SIP_SERVER }}
+          SIP_USER: ${{ vars.SIP_USER }}
+          SIP_PASSWORD: ${{ vars.SIP_PASSWORD }}
         run: |
           python scripts/smoke_test.py \
             --expected-version "$EXPECTED_VERSION" \
             ${SIP_REGISTRAR:+--sip-registrar "$SIP_REGISTRAR"} \
             ${SIP_USER:+--sip-user "$SIP_USER"} \
-            ${SIP_PASSWORD:+--sip-password "$SIP_PASSWORD"} \
-            ${SIP_DOMAIN:+--sip-domain "$SIP_DOMAIN"}
+            ${SIP_PASSWORD:+--sip-password "$SIP_PASSWORD"}
 
   github-release:
     if: startsWith(github.ref, 'refs/tags/v')
