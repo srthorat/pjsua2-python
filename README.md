@@ -9,6 +9,16 @@ Pre-built binary wheels for the [PJSUA2](https://www.pjsip.org/) Python bindings
 pip install pjsua2-python
 ```
 
+Install a specific bundled PJSIP line when your application needs one:
+
+```bash
+# Latest/default line, bundles pjproject 2.15.1
+pip install "pjsua2-python==2.15.1.post1"
+
+# Legacy line, bundles pjproject 2.10
+pip install "pjsua2-python==2.10.post1"
+```
+
 Available for Linux (x86_64), macOS (Intel + Apple Silicon), and Windows (AMD64) on Python 3.8–3.12.
 
 ---
@@ -27,14 +37,16 @@ The repo is wheel-first. It builds PJSIP/PJSUA2, stages the generated SWIG artif
 
 `pjsua2-python` is a native extension package, not a pure Python package.
 
-The package version should match the bundled `pjproject` version exactly. This avoids the usual confusion of having a separate wrapper version and an upstream PJSIP version.
+The package version normally tracks the bundled `pjproject` version. For packaging-only fixes, the Python package may use a post-release suffix while the bundled upstream ref stays on the original pjproject tag.
 
 Examples:
 
 - `pjsua2-python==2.15.1` packages `pjproject` `2.15.1`
+- `pjsua2-python==2.15.1.post1` packages `pjproject` `2.15.1`
+- `pjsua2-python==2.10.post1` packages `pjproject` `2.10`
 - future `pjsua2-python==2.16.x` should package `pjproject` `2.16.x`
 
-This repository now treats [pjsua2/_version.py](/home/ubuntu/dev/pjsua2-python/pjsua2/_version.py) as the single source of truth. The package metadata and CI build default both derive from that file automatically.
+This repository treats [pjsua2/_version.py](pjsua2/_version.py) as the Python package version and [pjsua2/_pjproject_ref](pjsua2/_pjproject_ref) as the bundled upstream ref.
 
 That means `pip install pjsua2-python` works by publishing multiple wheels, then letting `pip` choose the right one for the current machine:
 
@@ -226,7 +238,7 @@ That helper builds the package on the current macOS host and runs `delocate` int
 
 ```bash
 pip install pjsua2-python
-python scripts/smoke_test.py --expected-version 2.15.1
+python scripts/smoke_test.py --expected-version 2.15.1.post1
 ```
 
 Expected output:
@@ -234,7 +246,7 @@ Expected output:
 ```
 ============================================================
   import pjsua2        ... PASS
-  version check        ... PASS [2.15.1]
+  version check        ... PASS [2.15.1.post1]
   module attributes    ... PASS [96 attrs]
   endpoint lifecycle   ... PASS
   SIP register         ... PASS [200 OK (expires=3600s)]
@@ -291,6 +303,15 @@ After the wheels are published to PyPI, users run:
 ```bash
 pip install pjsua2-python
 ```
+
+That installs the newest published package version, currently the `2.15.1` line once `2.15.1.post1` is released. To install a specific bundled PJSIP line, pin the package version:
+
+```bash
+pip install "pjsua2-python==2.15.1.post1"
+pip install "pjsua2-python==2.10.post1"
+```
+
+PyPI keeps both releases. Publishing `2.10.post1` does not replace `2.15.1.post1`; users who need the older PJSIP line must request it explicitly.
 
 `pip` inspects the current machine:
 
