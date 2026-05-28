@@ -1,8 +1,38 @@
+import ctypes
+import glob
 from importlib import import_module
+from pathlib import Path
 
 from ._version import __version__
 
 __all__ = ["__version__"]
+
+
+def _init_openssl_digests():
+    package_dir = Path(__file__).resolve().parent
+    search_dirs = (
+        package_dir,
+        package_dir.parent / "pjsua2_python.libs",
+    )
+    patterns = (
+        "libcrypto*.so*",
+        "libcrypto*.dylib",
+        "libcrypto*.dll",
+        "libeay32*.dll",
+    )
+
+    for directory in search_dirs:
+        for pattern in patterns:
+            for path in glob.glob(str(directory / pattern)):
+                try:
+                    libcrypto = ctypes.CDLL(path)
+                    libcrypto.OpenSSL_add_all_digests()
+                    return
+                except (AttributeError, OSError):
+                    continue
+
+
+_init_openssl_digests()
 
 
 def _load_bindings():

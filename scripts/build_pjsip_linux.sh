@@ -7,8 +7,7 @@ PJPROJECT_DIR="${BUILD_ROOT}/pjproject"
 SWIG_DIR="${PJPROJECT_DIR}/pjsip-apps/src/swig/python"
 OPENSSL_COMPAT_HEADER="${ROOT_DIR}/scripts/openssl_compat_1_0.h"
 PYTHON_BIN="${PYTHON:-python}"
-PACKAGE_VERSION="$(${PYTHON_BIN} "${ROOT_DIR}/scripts/get_package_version.py")"
-PJSIP_REF="${PJSIP_REF:-${PACKAGE_VERSION}}"
+PJSIP_REF="$(${PYTHON_BIN} "${ROOT_DIR}/scripts/get_pjsip_ref.py")"
 
 bash "${ROOT_DIR}/scripts/check_linux_build_tools.sh"
 

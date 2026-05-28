@@ -25,8 +25,7 @@ $BuildRoot = Join-Path $RootDir "build"
 $PjprojectDir = Join-Path $BuildRoot "pjproject"
 $SwigDir = Join-Path $PjprojectDir "pjsip-apps\src\swig\python"
 $PythonExe = if ($env:PYTHON) { $env:PYTHON } else { "python" }
-$PackageVersion = & $PythonExe (Join-Path $RootDir "scripts\get_package_version.py")
-$PjsipRef = if ($env:PJSIP_REF) { $env:PJSIP_REF } else { $PackageVersion.Trim() }
+$PjsipRef = (& $PythonExe (Join-Path $RootDir "scripts\get_pjsip_ref.py")).Trim()
 
 & (Join-Path $RootDir "scripts\check_windows_build_tools.ps1")
 

@@ -105,11 +105,19 @@ pjsua2-python/
 - Windows: `AMD64`
 - Python: `3.8` through `3.12`
 
-## Default upstream version
+## Bundled upstream version
 
-The workflow defaults to the version declared in [pjsua2/_version.py](/home/ubuntu/dev/pjsua2-python/pjsua2/_version.py).
+The Python package version is declared in [pjsua2/_version.py](pjsua2/_version.py). The bundled pjproject checkout is declared separately in [pjsua2/_pjproject_ref](pjsua2/_pjproject_ref).
 
-This should stay equal to the Python package version. Release tags should follow the same convention, for example `v2.15.1`.
+For normal releases these usually match. For packaging-only fixes, the package version may be a post-release while the bundled upstream ref stays on the original pjproject tag.
+
+Examples:
+
+- package `2.15.1` with pjproject ref `2.15.1`
+- package `2.15.1.post1` with pjproject ref `2.15.1`
+- package `2.10.post1` with pjproject ref `2.10`
+
+Release tags should follow the Python package version, for example `v2.15.1.post1`.
 
 Override it when needed:
 
@@ -118,6 +126,18 @@ PJSIP_REF=master python -m cibuildwheel --output-dir dist
 ```
 
 If you want strict reproducibility, keep using a tag. If you want the newest upstream commit, set `PJSIP_REF=master` or a commit SHA.
+
+### Older PJSIP releases
+
+Older upstream releases can be built by setting `PJSIP_REF` to the matching tag, for example:
+
+```bash
+PJSIP_REF=2.10 python -m cibuildwheel --output-dir dist
+```
+
+For published wheels, prefer a release branch per upstream line. For example, keep `main` on the latest PJSIP line and create `release/2.10` where `pjsua2/_pjproject_ref` contains `2.10`. If you need packaging-only fixes for an already published upstream version, use a post-release package version such as `2.10.post1` while keeping `pjsua2/_pjproject_ref` set to `2.10`.
+
+PJSIP 2.10 exposes the legacy digest authentication API. It does not provide `AuthCredInfo.algoType` or constants such as `PJSIP_AUTH_ALGORITHM_MD5`, so application and test code should set those only when present.
 
 ## Design choices
 

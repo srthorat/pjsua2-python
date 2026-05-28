@@ -13,6 +13,7 @@ setuptools.Extension.
 import glob
 import os
 import sys
+from pathlib import Path
 
 from setuptools import Extension, setup
 
@@ -22,13 +23,41 @@ if not pjdir or not os.path.isdir(pjdir):
         f"Error: PJDIR env var must point to the pjproject root dir, got: {pjdir!r}"
     )
 
-# ---------------------------------------------------------------------------
-# PJ version — hardcoded to match the checked-out tag (2.15.1)
-# version.mak uses GNU make variable expansion ($(VAR)) which cannot be
-# parsed with a simple line-by-line reader without executing make, so we
-# avoid that and just hardcode the version string here.
-# ---------------------------------------------------------------------------
-pj_version = "2.15.1"
+def read_pj_version(pjproject_dir):
+    env_version = os.environ.get("PJ_VERSION", "").strip()
+    if env_version:
+        return env_version
+
+    version_file = Path(pjproject_dir) / "version.mak"
+    values = {}
+    for line in version_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line.startswith("export PJ_VERSION_"):
+            continue
+        key, separator, value = line.partition(":=")
+        if not separator:
+            key, separator, value = line.partition("=")
+        if not separator:
+            continue
+        key = key.replace("export", "").strip()
+        values[key] = value.strip()
+
+    major = values.get("PJ_VERSION_MAJOR", "")
+    minor = values.get("PJ_VERSION_MINOR", "")
+    rev = values.get("PJ_VERSION_REV", "")
+    suffix = values.get("PJ_VERSION_SUFFIX", "")
+    if not major or not minor:
+        sys.exit(f"Error: could not parse PJ version from {version_file}")
+
+    version = f"{major}.{minor}"
+    if rev:
+        version += f".{rev}"
+    if suffix:
+        version += suffix
+    return version
+
+
+pj_version = read_pj_version(pjdir)
 
 # ---------------------------------------------------------------------------
 # Include directories

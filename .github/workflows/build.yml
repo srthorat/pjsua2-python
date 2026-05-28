@@ -62,11 +62,12 @@ jobs:
         shell: bash
         run: |
           package_version="$(python scripts/get_package_version.py)"
+          default_pjsip_ref="$(python scripts/get_pjsip_ref.py)"
           requested_ref="${{ github.event.inputs.pjsip_ref }}"
           if [[ -n "${requested_ref}" ]]; then
             echo "pjsip_ref=${requested_ref}" >> "$GITHUB_OUTPUT"
           else
-            echo "pjsip_ref=${package_version}" >> "$GITHUB_OUTPUT"
+            echo "pjsip_ref=${default_pjsip_ref}" >> "$GITHUB_OUTPUT"
           fi
           echo "package_version=${package_version}" >> "$GITHUB_OUTPUT"
 

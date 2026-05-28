@@ -19,6 +19,9 @@ Usage:
       --sip-domain example.com
 """
 import argparse
+import ctypes
+import glob
+import os
 import sys
 import threading
 from typing import Optional
@@ -105,6 +108,61 @@ def check_modules(pjlib):
     return len(required)
 
 
+def check_auth_algorithm_api(pjlib):
+    cred = pjlib.AuthCredInfo("digest", "*", "user", 0, "password")
+    has_algo_type = hasattr(cred, "algoType")
+    has_md5_constant = hasattr(pjlib, "PJSIP_AUTH_ALGORITHM_MD5")
+
+    if has_algo_type != has_md5_constant:
+        raise AssertionError(
+            "Auth algorithm API is incomplete: "
+            f"algoType={has_algo_type}, PJSIP_AUTH_ALGORITHM_MD5={has_md5_constant}"
+        )
+    if has_algo_type:
+        cred.algoType = pjlib.PJSIP_AUTH_ALGORITHM_MD5
+        return "typed digest algorithm"
+    return "legacy digest algorithm"
+
+
+def _set_md5_algorithm_if_available(pjlib, cred):
+    if hasattr(cred, "algoType") and hasattr(pjlib, "PJSIP_AUTH_ALGORITHM_MD5"):
+        cred.algoType = pjlib.PJSIP_AUTH_ALGORITHM_MD5
+
+
+def check_openssl_md5_registered():
+    import pjsua2
+
+    package_dir = os.path.dirname(os.path.abspath(pjsua2.__file__))
+    site_packages = os.path.dirname(package_dir)
+    search_dirs = (
+        package_dir,
+        os.path.join(site_packages, "pjsua2_python.libs"),
+    )
+    patterns = (
+        "libcrypto*.so*",
+        "libcrypto*.dylib",
+        "libcrypto*.dll",
+        "libeay32*.dll",
+    )
+
+    checked = 0
+    for directory in search_dirs:
+        for pattern in patterns:
+            for path in glob.glob(os.path.join(directory, pattern)):
+                try:
+                    libcrypto = ctypes.CDLL(path)
+                    libcrypto.EVP_get_digestbyname.restype = ctypes.c_void_p
+                    checked += 1
+                    if libcrypto.EVP_get_digestbyname(b"MD5"):
+                        return "MD5 registered"
+                except (AttributeError, OSError):
+                    continue
+
+    if checked:
+        raise AssertionError("OpenSSL MD5 digest is not registered")
+    return "no bundled libcrypto"
+
+
 def check_endpoint_lifecycle():
     import pjsua2
     ep = pjsua2.Endpoint()
@@ -160,6 +218,7 @@ def check_sip_register(registrar: str, user: str, password: str,
     acc_cfg.idUri = f"sip:{user}@{domain}"
     acc_cfg.regConfig.registrarUri = f"sip:{registrar}"
     cred = pjsua2.AuthCredInfo("digest", "*", user, 0, password)
+    _set_md5_algorithm_if_available(pjsua2, cred)
     acc_cfg.sipConfig.authCreds.append(cred)
     acc.create(acc_cfg)
 
@@ -207,6 +266,7 @@ def check_sip_unregister(registrar: str, user: str, password: str,
     acc_cfg.idUri = f"sip:{user}@{domain}"
     acc_cfg.regConfig.registrarUri = f"sip:{registrar}"
     cred = pjsua2.AuthCredInfo("digest", "*", user, 0, password)
+    _set_md5_algorithm_if_available(pjsua2, cred)
     acc_cfg.sipConfig.authCreds.append(cred)
     acc.create(acc_cfg)
 
@@ -287,6 +347,8 @@ def main():
 
     run("version check", lambda: check_version(args.expected_version))
     run("module attributes", lambda: f"{check_modules(pjsua2_mod)} attrs")
+    run("auth algorithm API", lambda: check_auth_algorithm_api(pjsua2_mod))
+    run("OpenSSL MD5 digest", check_openssl_md5_registered)
     run("endpoint lifecycle", check_endpoint_lifecycle)
 
     # Domain defaults to registrar host when not specified separately
