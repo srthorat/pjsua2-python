@@ -26,6 +26,23 @@ git -C "${PJPROJECT_DIR}" clean -fdx
 
 cp "${ROOT_DIR}/scripts/config_site.h" "${PJPROJECT_DIR}/pjlib/include/pj/config_site.h"
 
+# pjproject 2.10 bundles WebRTC with SSE2-only sources (aec_core_sse2.c,
+# aec_rdft_sse2.c). In pjproject 2.10, third_party/build always compiles
+# the WebRTC library regardless of PJMEDIA_HAS_WEBRTC_AEC -- that variable
+# only controls whether pjmedia *links* against it. Neither --disable-webrtc
+# nor passing PJMEDIA_HAS_WEBRTC_AEC=0 to make prevents compilation on arm64.
+# The only reliable fix is to stub those source files with empty C units
+# after checkout. aec_core.c only references SSE2 symbols under -DWEBRTC_USE_SSE2
+# which is not set on arm64 builds, so empty stubs produce no missing symbols.
+if [[ "$(uname -m)" == "arm64" ]] || echo "${ARCH_FLAGS}" | grep -q "arm64"; then
+    for _sse2 in \
+        "third_party/webrtc/src/webrtc/modules/audio_processing/aec/aec_core_sse2.c" \
+        "third_party/webrtc/src/webrtc/modules/audio_processing/aec/aec_rdft_sse2.c"; do
+        [[ -f "${PJPROJECT_DIR}/${_sse2}" ]] && \
+            echo "/* arm64: SSE2 not supported, stubbed out */" > "${PJPROJECT_DIR}/${_sse2}"
+    done
+fi
+
 pushd "${PJPROJECT_DIR}" >/dev/null
 export MACOSX_DEPLOYMENT_TARGET
 export CFLAGS="${CFLAGS:-} ${ARCH_FLAGS} -fPIC -O2 -I${OPENSSL_PREFIX}/include"
@@ -34,18 +51,8 @@ export CPPFLAGS="${CPPFLAGS:-} -I${OPENSSL_PREFIX}/include"
 export LDFLAGS="${LDFLAGS:-} ${ARCH_FLAGS} -L${OPENSSL_PREFIX}/lib"
 export PKG_CONFIG_PATH="${OPENSSL_PREFIX}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
 ./configure --disable-shared --disable-sound --disable-video
-# pjproject 2.10's bundled WebRTC contains SSE2-only sources (aec_core_sse2.c,
-# aec_rdft_sse2.c) that cannot compile on arm64. The --disable-webrtc configure
-# flag is not effective in pjproject 2.10; instead pass PJMEDIA_HAS_WEBRTC_AEC=0
-# as a Makefile variable to override the value in build.mak and skip the
-# third_party/webrtc build directory entirely.
-# (Sound is already disabled so WebRTC AEC is unused regardless of platform.)
-WEBRTC_MAKE_OPTS=""
-if [[ "$(uname -m)" == "arm64" ]] || echo "${ARCH_FLAGS}" | grep -q "arm64"; then
-    WEBRTC_MAKE_OPTS="PJMEDIA_HAS_WEBRTC_AEC=0"
-fi
-make dep ${WEBRTC_MAKE_OPTS}
-make -j"${CPU_COUNT}" lib ${WEBRTC_MAKE_OPTS}
+make dep
+make -j"${CPU_COUNT}" lib
 popd >/dev/null
 
 pushd "${SWIG_DIR}" >/dev/null

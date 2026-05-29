@@ -51,7 +51,7 @@ if (-not $vsDevCmd -and -not $hasCompilerInPath) {
 $escapedVsDevCmd = if ($vsDevCmd) { $vsDevCmd.Replace('"', '""') } else { $null }
 $escapedPythonExe = $PythonExe.Replace('"', '""')
 
-# ── Step 1: Build pjproject native libraries via MSBuild ─────────────────────
+# === Step 1: Build pjproject native libraries via MSBuild ====================
 # On Windows, pjproject uses VS project files rather than autoconf/make.
 # The SWIG setup.py links against these .lib files, so they must exist first.
 # The solution file lives in the pjproject root (not in build/vs/).
@@ -83,19 +83,22 @@ if ($msbuildExitCode -ne 0) {
         (Join-Path $PjprojectDir "pjnath\lib"),
         (Join-Path $PjprojectDir "third_party\lib")
     )
-    $allLibs = $libDirs | Where-Object { Test-Path $_ } | ForEach-Object {
-        Get-ChildItem -Path $_ -Filter "*.lib" -ErrorAction SilentlyContinue
+    $allLibs = @()
+    foreach ($libDir in $libDirs) {
+        if (Test-Path $libDir) {
+            $allLibs += Get-ChildItem -Path $libDir -Filter "*.lib" -ErrorAction SilentlyContinue
+        }
     }
     # We need at minimum pjlib and pjsip libs to build the SWIG extension.
-    $hasPjlib   = $allLibs | Where-Object { $_.Name -like "pjlib-*" }
-    $hasPjsip   = $allLibs | Where-Object { $_.Name -like "pjsip*" }
+    $hasPjlib = $allLibs | Where-Object { $_.Name -like "pjlib-*" }
+    $hasPjsip = $allLibs | Where-Object { $_.Name -like "pjsip*" }
     if (-not $hasPjlib -or -not $hasPjsip) {
-        throw "MSBuild pjproject failed with exit code $msbuildExitCode and essential .lib files are missing. Check the build log above for the failing project."
+        throw "MSBuild pjproject failed with exit code $msbuildExitCode and essential .lib files are missing."
     }
-    Write-Warning "MSBuild returned exit code $msbuildExitCode (some test/app projects may have failed). Core library .lib files are present — continuing."
+    Write-Warning "MSBuild returned exit code $msbuildExitCode - some test/app projects may have failed but core libs are present, continuing."
 }
 
-# ── Step 2: Build SWIG Python bindings ───────────────────────────────────────
+# === Step 2: Build SWIG Python bindings ======================================
 # Set MSYSTEM to empty string so any downstream code that inspects it
 # (e.g. pjproject setup.py) doesn't raise a KeyError on MSVC.
 $env:MSYSTEM = ""
