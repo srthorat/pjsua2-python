@@ -33,7 +33,14 @@ export CXXFLAGS="${CXXFLAGS:-} ${ARCH_FLAGS} -fPIC -O2 -I${OPENSSL_PREFIX}/inclu
 export CPPFLAGS="${CPPFLAGS:-} -I${OPENSSL_PREFIX}/include"
 export LDFLAGS="${LDFLAGS:-} ${ARCH_FLAGS} -L${OPENSSL_PREFIX}/lib"
 export PKG_CONFIG_PATH="${OPENSSL_PREFIX}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-./configure --disable-shared --disable-sound --disable-video
+# pjproject 2.10's bundled WebRTC contains SSE2-only sources that cannot be
+# compiled on arm64. Detect arm64 (native runner or cross-compile ARCHFLAGS)
+# and disable the WebRTC AEC module so those files are skipped.
+WEBRTC_FLAG=""
+if [[ "$(uname -m)" == "arm64" ]] || echo "${ARCH_FLAGS}" | grep -q "arm64"; then
+    WEBRTC_FLAG="--disable-webrtc"
+fi
+./configure --disable-shared --disable-sound --disable-video ${WEBRTC_FLAG}
 make dep
 make -j"${CPU_COUNT}" lib
 popd >/dev/null
