@@ -33,16 +33,19 @@ export CXXFLAGS="${CXXFLAGS:-} ${ARCH_FLAGS} -fPIC -O2 -I${OPENSSL_PREFIX}/inclu
 export CPPFLAGS="${CPPFLAGS:-} -I${OPENSSL_PREFIX}/include"
 export LDFLAGS="${LDFLAGS:-} ${ARCH_FLAGS} -L${OPENSSL_PREFIX}/lib"
 export PKG_CONFIG_PATH="${OPENSSL_PREFIX}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-# pjproject 2.10's bundled WebRTC contains SSE2-only sources that cannot be
-# compiled on arm64. Detect arm64 (native runner or cross-compile ARCHFLAGS)
-# and disable the WebRTC AEC module so those files are skipped.
-WEBRTC_FLAG=""
+./configure --disable-shared --disable-sound --disable-video
+# pjproject 2.10's bundled WebRTC contains SSE2-only sources (aec_core_sse2.c,
+# aec_rdft_sse2.c) that cannot compile on arm64. The --disable-webrtc configure
+# flag is not effective in pjproject 2.10; instead pass PJMEDIA_HAS_WEBRTC_AEC=0
+# as a Makefile variable to override the value in build.mak and skip the
+# third_party/webrtc build directory entirely.
+# (Sound is already disabled so WebRTC AEC is unused regardless of platform.)
+WEBRTC_MAKE_OPTS=""
 if [[ "$(uname -m)" == "arm64" ]] || echo "${ARCH_FLAGS}" | grep -q "arm64"; then
-    WEBRTC_FLAG="--disable-webrtc"
+    WEBRTC_MAKE_OPTS="PJMEDIA_HAS_WEBRTC_AEC=0"
 fi
-./configure --disable-shared --disable-sound --disable-video ${WEBRTC_FLAG}
-make dep
-make -j"${CPU_COUNT}" lib
+make dep ${WEBRTC_MAKE_OPTS}
+make -j"${CPU_COUNT}" lib ${WEBRTC_MAKE_OPTS}
 popd >/dev/null
 
 pushd "${SWIG_DIR}" >/dev/null
