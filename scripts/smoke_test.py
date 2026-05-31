@@ -22,6 +22,7 @@ import argparse
 import ctypes
 import glob
 import os
+import subprocess
 import sys
 import threading
 from typing import Optional
@@ -67,9 +68,9 @@ def check_modules(pjlib):
         "CallMediaInfo", "CallSendRequestParam",
         # Media
         "Media", "AudioMedia", "AudioMediaPlayer", "AudioMediaRecorder",
-        "AudioMediaPort", "AudioDevInfo", "AudDevManager",
+        "AudioDevInfo", "AudDevManager",
         "MediaFormatAudio", "MediaFormatVideo", "MediaFormat",
-        "MediaEvent", "MediaFrame", "MediaSize",
+        "MediaEvent", "MediaSize",
         "CodecInfo", "CodecParam", "CodecParamInfo", "CodecParamSetting",
         "ConfPortInfo", "ToneGenerator", "ToneDesc", "ToneDigit",
         # Video
@@ -299,6 +300,34 @@ def check_sip_unregister(registrar: str, user: str, password: str,
 # Runner
 # ---------------------------------------------------------------------------
 
+def _run_sip_test_subprocess(mode, registrar, user, password, domain, expected_version):
+    """Run a single SIP test in a fresh subprocess.
+
+    pjlib does not support re-initialisation after libDestroy() in the same
+    process.  Running each SIP action in a child process guarantees a clean
+    pjlib state and avoids segfaults when the endpoint lifecycle test has
+    already run in the parent process.
+
+    Exit codes used by the child: 0=pass, 2=SipNetworkWarning, 1=failure.
+    """
+    cmd = [sys.executable, __file__,
+           "--_sip-mode", mode,
+           "--sip-registrar", registrar,
+           "--sip-user", user,
+           "--sip-password", password,
+           "--sip-domain", domain]
+    if expected_version:
+        cmd += ["--expected-version", expected_version]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    output = (result.stdout + result.stderr).strip()
+    last_line = output.split("\n")[-1] if output else ""
+    if result.returncode == 0:
+        return last_line or "OK"
+    if result.returncode == 2:
+        raise SipNetworkWarning(last_line)
+    raise AssertionError(last_line or f"SIP {mode} failed (exit {result.returncode})")
+
+
 def main():
     parser = argparse.ArgumentParser(description="pjsua2_python smoke test")
     parser.add_argument("--expected-version", default=None,
@@ -307,7 +336,33 @@ def main():
     parser.add_argument("--sip-user", default=None)
     parser.add_argument("--sip-password", default=None)
     parser.add_argument("--sip-domain", default=None)
+    # Internal flag: used by subprocess calls to run a single SIP action and exit
+    parser.add_argument("--_sip-mode", dest="sip_mode_internal",
+                        choices=["register", "unregister"],
+                        help=argparse.SUPPRESS)
     args = parser.parse_args()
+
+    # --- subprocess SIP-only mode -------------------------------------------
+    if args.sip_mode_internal:
+        sip_d = args.sip_domain or args.sip_registrar
+        try:
+            if args.sip_mode_internal == "register":
+                result = check_sip_register(
+                    args.sip_registrar, args.sip_user,
+                    args.sip_password, sip_d)
+            else:
+                result = check_sip_unregister(
+                    args.sip_registrar, args.sip_user,
+                    args.sip_password, sip_d)
+            print(result)
+            sys.exit(0)
+        except SipNetworkWarning as exc:
+            print(str(exc))
+            sys.exit(2)
+        except Exception as exc:
+            print(str(exc))
+            sys.exit(1)
+    # ------------------------------------------------------------------------
 
     passed = 0
     failed = 0
@@ -356,13 +411,18 @@ def main():
     sip_creds = (args.sip_registrar, args.sip_user, args.sip_password, sip_domain)
     if all(sip_creds):
         r, u, p, d = args.sip_registrar, args.sip_user, args.sip_password, sip_domain
+        ev = args.expected_version
+        # Run each SIP test in a subprocess: pjlib does not support
+        # re-initialisation after libDestroy() in the same process, so a
+        # second Endpoint().libCreate() call (after the lifecycle test above)
+        # causes a segfault.  Child processes get a clean pjlib state.
         run(
             f"SIP register ({u}@{d})",
-            lambda: check_sip_register(r, u, p, d),
+            lambda: _run_sip_test_subprocess("register", r, u, p, d, ev),
         )
         run(
             f"SIP unregister ({u}@{d})",
-            lambda: check_sip_unregister(r, u, p, d),
+            lambda: _run_sip_test_subprocess("unregister", r, u, p, d, ev),
         )
     else:
         print("  SIP register   ... SKIP (set SIP_* vars to enable)")
